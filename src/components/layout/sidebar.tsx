@@ -21,13 +21,12 @@ import {
   Settings,
   CircleHelp,
 } from 'lucide-react';
-import { Button } from '../ui/button';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/accounts', label: 'Accounts', icon: Wallet },
   { href: '/transactions', label: 'Transactions', icon: ArrowRightLeft },
-  { href: '/budget', label: 'Budget', icon: PieChart },
+  { href: '/budget', label: 'Budget', icon: PieChart, disabled: true },
   { href: '/import', label: 'Import', icon: Upload },
 ];
 
@@ -49,9 +48,11 @@ export function AppSidebar() {
               <SidebarMenuButton
                 asChild
                 isActive={pathname.startsWith(item.href)}
-                tooltip={item.label}
+                tooltip={item.disabled ? `${item.label} (Coming soon)` : item.label}
+                disabled={item.disabled}
+                aria-disabled={item.disabled}
               >
-                <Link href={item.href}>
+                <Link href={item.disabled ? '#' : item.href}>
                   <item.icon />
                   <span>{item.label}</span>
                 </Link>
@@ -63,15 +64,15 @@ export function AppSidebar() {
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Help" asChild>
-              <Link href="/help">
+             <SidebarMenuButton asChild isActive={pathname.startsWith('/help')} tooltip="Help & Support">
+               <Link href="/help">
                 <CircleHelp />
                 <span>Help & Support</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton isActive={pathname.startsWith('/settings')} tooltip="Settings" asChild>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/settings')} tooltip="Settings">
               <Link href="/settings">
                 <Settings />
                 <span>Settings</span>

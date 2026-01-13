@@ -12,9 +12,16 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
       strokeLinejoin="round"
       {...props}
     >
-      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="hsla(var(--primary) / 0.5)" />
-      <path d="M2 17l10 5 10-5" />
-      <path d="M2 12l10 5 10-5" />
+      <defs>
+        <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
+          <stop offset="100%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 1 }} />
+        </linearGradient>
+      </defs>
+      <rect width="18" height="18" x="3" y="3" rx="4" ry="4" fill="url(#logoGradient)" stroke="none" />
+      <path d="M7 12h2v5H7z" fill="hsla(var(--primary-foreground) / 0.8)" />
+      <path d="M11 7h2v10h-2z" fill="hsla(var(--primary-foreground) / 0.8)" />
+      <path d="M15 10h2v7h-2z" fill="hsla(var(--primary-foreground) / 0.8)" />
     </svg>
   );
 }
