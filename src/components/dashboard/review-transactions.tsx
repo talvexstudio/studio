@@ -1,0 +1,172 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Edit, MoreVertical } from 'lucide-react';
+import type { Transaction } from '@/lib/types';
+import { mockAccounts, mockCategories } from '@/lib/data';
+import { EditTransactionSheet } from './edit-transaction-sheet';
+import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
+interface ReviewTransactionsProps {
+  transactions: Transaction[];
+}
+
+export function ReviewTransactions({ transactions: initialTransactions }: ReviewTransactionsProps) {
+  const { toast } = useToast();
+  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  useEffect(() => {
+    setTransactions(initialTransactions);
+  }, [initialTransactions]);
+
+  const getCategoryName = (catId?: string) => mockCategories.find(c => c.id === catId)?.name || 'Uncategorized';
+  const getSubcategoryName = (subcatId?: string) => {
+    for (const cat of mockCategories) {
+        const sub = cat.subcategories.find(s => s.id === subcatId);
+        if (sub) return sub.name;
+    }
+    return '';
+  }
+  const getAccountName = (accId: string) => mockAccounts.find(a => a.id === accId)?.name || 'Unknown Account';
+  
+  const handleApprove = (transactionId: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== transactionId));
+    toast({
+      title: "Transaction Approved",
+      description: "The transaction has been successfully categorized.",
+    });
+    // In a real app, you would also make an API call to update the backend.
+  };
+  
+  const handleSave = (updatedTransaction: Transaction, createRule: boolean) => {
+    const newTransactions = transactions.filter(t => t.id !== updatedTransaction.id);
+    setTransactions(newTransactions);
+    setEditingTransaction(null);
+    toast({
+      title: "Transaction Updated",
+      description: "Your changes have been saved.",
+    });
+    if (createRule) {
+      toast({
+        title: "Classification Rule Created",
+        description: "A new rule has been created for similar transactions.",
+      });
+      // In a real app, you would call the generateClassificationRule AI flow.
+      console.log('Creating classification rule for:', updatedTransaction);
+    }
+  };
+
+  if (transactions.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Transactions to Review</CardTitle>
+          <CardDescription>All your transactions are categorized. Great job!</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center text-muted-foreground p-8">
+            No transactions to review.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Transactions to Review</CardTitle>
+          <CardDescription>Confirm or edit the classification for these transactions.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="hidden md:table-cell">Date</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell className="hidden md:table-cell">{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{getAccountName(transaction.accountId)}</TableCell>
+                  <TableCell className="font-medium">{transaction.description}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                        <Badge variant="outline" className="mb-1 w-fit">{getCategoryName(transaction.categoryId)}</Badge>
+                        {transaction.subcategoryId && <span className="text-xs text-muted-foreground">{getSubcategoryName(transaction.subcategoryId)}</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className={`text-right font-semibold ${transaction.amountBase > 0 ? 'text-green-600' : ''}`}>€{transaction.amountBase.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="hidden md:flex items-center justify-end">
+                      <Button variant="ghost" size="icon" onClick={() => handleApprove(transaction.id)}>
+                          <Check className="h-4 w-4 text-green-500" />
+                          <span className="sr-only">Approve</span>
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setEditingTransaction(transaction)}>
+                          <Edit className="h-4 w-4 text-primary" />
+                          <span className="sr-only">Edit</span>
+                      </Button>
+                    </div>
+                    <div className="md:hidden">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleApprove(transaction.id)}>
+                                    <Check className="mr-2 h-4 w-4 text-green-500" />
+                                    Approve
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditingTransaction(transaction)}>
+                                    <Edit className="mr-2 h-4 w-4 text-primary" />
+                                    Edit
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <EditTransactionSheet 
+        isOpen={!!editingTransaction}
+        onOpenChange={(open) => { if (!open) setEditingTransaction(null) }}
+        transaction={editingTransaction}
+        onSave={handleSave}
+        categories={mockCategories}
+      />
+    </>
+  );
+}
