@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -55,10 +56,10 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
       data = data.filter(t => t.categoryId && categoryFilter.includes(t.categoryId));
     }
     if (dateRange?.from) {
-      data = data.filter(t => t.date >= dateRange.from!);
+      data = data.filter(t => new Date(t.date) >= dateRange.from!);
     }
     if (dateRange?.to) {
-      data = data.filter(t => t.date <= dateRange.to!);
+      data = data.filter(t => new Date(t.date) <= dateRange.to!);
     }
     return data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, accountFilter, categoryFilter, dateRange]);
