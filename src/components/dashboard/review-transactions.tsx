@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Check, Edit, MoreVertical } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
-import { EditTransactionSheet } from './edit-transaction-sheet';
+import { TransactionFormSheet } from '../transactions/transaction-form-sheet';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useFlowLedger } from '@/hooks/use-flow-ledger';
@@ -64,7 +64,7 @@ export function ReviewTransactions({ transactions: initialTransactions }: Review
     }
   };
   
-  const handleSave = async (updatedTransaction: Transaction, createRule: boolean) => {
+  const handleSave = async (updatedTransaction: Partial<Transaction>, createRule: boolean) => {
     if (!workspaceId) return;
     try {
         await saveTransaction(workspaceId, updatedTransaction);
@@ -177,12 +177,13 @@ export function ReviewTransactions({ transactions: initialTransactions }: Review
           </Table>
         </CardContent>
       </Card>
-      <EditTransactionSheet 
+      <TransactionFormSheet 
         isOpen={!!editingTransaction}
         onOpenChange={(open) => { if (!open) setEditingTransaction(null) }}
         transaction={editingTransaction}
         onSave={handleSave}
         categories={categories}
+        accounts={accounts}
       />
     </>
   );

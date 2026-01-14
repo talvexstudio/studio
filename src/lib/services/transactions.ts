@@ -16,13 +16,26 @@ export const getTransactions = async (workspaceId: string): Promise<Transaction[
 }
 
 export const saveTransaction = async (workspaceId: string, transactionData: Partial<Transaction>) => {
-    if (!transactionData.id) {
-        throw new Error("Transaction ID is required to save.");
+    const coll = db.collection(transactionsCollection(workspaceId));
+    if (transactionData.id) {
+        const { id, ...data } = transactionData;
+        await coll.doc(id).set(data, { merge: true });
+        return { ...data, id };
+    } else {
+        const docRef = await coll.add({
+            ...transactionData,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+        const newTransaction = { ...transactionData, id: docRef.id };
+        return newTransaction;
     }
-    const { id, ...data } = transactionData;
-    await db.collection(transactionsCollection(workspaceId)).doc(id).set(data, { merge: true });
 }
 
 export const confirmTransaction = async (workspaceId: string, transactionId: string) => {
     await db.collection(transactionsCollection(workspaceId)).doc(transactionId).update({ needsReview: false });
+}
+
+export const deleteTransaction = async (workspaceId: string, transactionId: string) => {
+    await db.collection(transactionsCollection(workspaceId)).doc(transactionId).delete();
 }

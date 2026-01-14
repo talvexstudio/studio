@@ -1,13 +1,18 @@
 import { z } from 'zod';
 
-export const editTransactionSchema = z.object({
+export const transactionSchema = z.object({
+  id: z.string().optional(),
+  accountId: z.string().min(1, "Account is required."),
+  date: z.date({ required_error: "Please select a date." }),
   description: z.string().min(1, 'Description is required.'),
+  amountBase: z.number({ required_error: "Amount is required."}).min(-100000000, "Amount is too low").max(100000000, "Amount is too high"),
+  type: z.enum(['Expense', 'Income', 'InternalTransfer', 'Adjustment']),
   categoryId: z.string().optional(),
   subcategoryId: z.string().optional(),
   createRule: z.boolean().default(false),
 });
 
-export type EditTransactionFormValues = z.infer<typeof editTransactionSchema>;
+export type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 export const accountSchema = z.object({
   name: z.string().min(1, "Account name is required."),

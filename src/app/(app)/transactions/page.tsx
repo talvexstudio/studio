@@ -2,30 +2,62 @@
 
 import { TransactionsDataTable } from "@/components/transactions/data-table";
 import { useFlowLedger } from "@/hooks/use-flow-ledger";
-import { EditTransactionSheet } from "@/components/dashboard/edit-transaction-sheet";
+import { TransactionFormSheet } from "@/components/transactions/transaction-form-sheet";
 import { useState } from "react";
 import type { Transaction } from "@/lib/types";
-import { confirmTransaction, saveTransaction } from "@/lib/services/transactions";
+import { confirmTransaction, deleteTransaction, saveTransaction } from "@/lib/services/transactions";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 
 export default function TransactionsPage() {
     const { toast } = useToast();
-    const { categories, reloadTransactions, workspaceId } = useFlowLedger();
-    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-
+    const { categories, accounts, reloadTransactions, workspaceId } = useFlowLedger();
+    const [sheetState, setSheetState] = useState<{ open: boolean; transaction: Partial<Transaction> | null }>({ open: false, transaction: null });
+    const [deleteState, setDeleteState] = useState<{ open: boolean; transaction: Transaction | null }>({ open: false, transaction: null });
+    
+    const handleNew = () => {
+        setSheetState({ open: true, transaction: null });
+    }
 
     const handleEdit = (transaction: Transaction) => {
-        setEditingTransaction(transaction);
+        setSheetState({ open: true, transaction });
     }
+
+    const handleDelete = (transaction: Transaction) => {
+        setDeleteState({ open: true, transaction });
+    }
+
+    const handleConfirmDelete = async () => {
+        if (!workspaceId || !deleteState.transaction) return;
+        try {
+            await deleteTransaction(workspaceId, deleteState.transaction.id);
+            setDeleteState({ open: false, transaction: null });
+            await reloadTransactions();
+            toast({
+              title: "Transaction Deleted",
+              description: "The transaction has been successfully removed.",
+            });
+        } catch (error) {
+            console.error(error);
+            toast({
+                variant: 'destructive',
+                title: 'Delete failed',
+                description: 'Could not delete the transaction.',
+            });
+        }
+    };
     
-    const handleSave = async (updatedTransaction: Transaction, createRule: boolean) => {
+    const handleSave = async (updatedTransaction: Partial<Transaction>, createRule: boolean) => {
       if (!workspaceId) return;
         try {
             await saveTransaction(workspaceId, updatedTransaction);
-            setEditingTransaction(null);
+            setSheetState({ open: false, transaction: null });
             await reloadTransactions();
             toast({
-              title: "Transaction Updated",
+              title: `Transaction ${updatedTransaction.id ? 'Updated' : 'Created'}`,
               description: "Your changes have been saved.",
             });
             if (createRule) {
@@ -40,7 +72,7 @@ export default function TransactionsPage() {
             console.error(error);
             toast({
                 variant: 'destructive',
-                title: 'Update failed',
+                title: 'Save failed',
                 description: 'Could not save transaction changes.',
             });
         }
@@ -68,19 +100,42 @@ export default function TransactionsPage() {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">View and manage all your transactions.</p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+              <p className="text-muted-foreground">View and manage all your transactions.</p>
+            </div>
+             <Button onClick={handleNew}>
+              <PlusCircle />
+              New Transaction
+            </Button>
         </div>
-        <TransactionsDataTable onEdit={handleEdit} onConfirm={handleConfirm}/>
+        <TransactionsDataTable onEdit={handleEdit} onConfirm={handleConfirm} onDelete={handleDelete} />
       </div>
-      <EditTransactionSheet 
-        isOpen={!!editingTransaction}
-        onOpenChange={(open) => { if (!open) setEditingTransaction(null) }}
-        transaction={editingTransaction}
+      <TransactionFormSheet 
+        isOpen={sheetState.open}
+        onOpenChange={(open) => { if (!open) setSheetState({ open: false, transaction: null }) }}
+        transaction={sheetState.transaction}
         onSave={handleSave}
         categories={categories}
+        accounts={accounts.filter(a => !a.archived)}
       />
+       <AlertDialog open={deleteState.open} onOpenChange={(open) => { if (!open) setDeleteState({ open: false, transaction: null })}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this transaction?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the transaction.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

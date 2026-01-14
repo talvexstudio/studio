@@ -12,7 +12,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -21,23 +20,24 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ListFilter, Calendar as CalendarIcon, Check, Edit, MoreVertical, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ListFilter, Calendar as CalendarIcon, Check, Edit, MoreVertical, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
 import { useFlowLedger } from '@/hooks/use-flow-ledger';
-import { DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '../ui/dropdown-menu';
+import { DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuCheckboxItem } from '../ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { addDays, format, endOfDay } from 'date-fns';
+import { endOfDay, format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 20;
 
 interface TransactionsDataTableProps {
   onEdit: (transaction: Transaction) => void;
   onConfirm: (transaction: Transaction) => void;
+  onDelete: (transaction: Transaction) => void;
 }
 
-export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTableProps) {
+export function TransactionsDataTable({ onEdit, onConfirm, onDelete }: TransactionsDataTableProps) {
   const { accounts, categories, transactions } = useFlowLedger();
   const [accountFilter, setAccountFilter] = React.useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = React.useState<string[]>([]);
@@ -236,6 +236,11 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
                                 <DropdownMenuItem onClick={() => onEdit(t)}>
                                     <Edit className="mr-2 h-4 w-4 text-primary" />
                                     Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => onDelete(t)} className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
