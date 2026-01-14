@@ -35,7 +35,7 @@ export function AppHeader() {
   const { toast } = useToast();
 
   const handleCreateWorkspace = async (name: string) => {
-    if (!user || isCreating) return;
+    if (!user) return;
     setIsCreating(true);
     try {
       const newWorkspace = await saveWorkspace({ name, ownerUserId: user.uid });
@@ -43,11 +43,13 @@ export function AppHeader() {
       if(newWorkspace.id) {
         setWorkspaceId(newWorkspace.id);
       }
+      setIsWorkspaceDialogOpen(false);
       toast({
         title: 'Workspace Created',
         description: `Successfully created workspace "${name}".`,
       });
-      setIsWorkspaceDialogOpen(false);
+      // Force a full page reload as a workaround for the UI freeze bug
+      window.location.reload();
     } catch(error) {
       console.error("Failed to create workspace:", error);
       toast({
