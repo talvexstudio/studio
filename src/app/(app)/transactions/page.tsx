@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function TransactionsPage() {
     const { toast } = useToast();
-    const { categories, reloadTransactions } = useFlowLedger();
+    const { categories, reloadTransactions, workspaceId } = useFlowLedger();
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
 
@@ -19,10 +19,11 @@ export default function TransactionsPage() {
     }
     
     const handleSave = async (updatedTransaction: Transaction, createRule: boolean) => {
+      if (!workspaceId) return;
         try {
-            await saveTransaction(updatedTransaction);
+            await saveTransaction(workspaceId, updatedTransaction);
             setEditingTransaction(null);
-            reloadTransactions();
+            await reloadTransactions();
             toast({
               title: "Transaction Updated",
               description: "Your changes have been saved.",
@@ -36,6 +37,7 @@ export default function TransactionsPage() {
               console.log('Creating classification rule for:', updatedTransaction);
             }
         } catch (error) {
+            console.error(error);
             toast({
                 variant: 'destructive',
                 title: 'Update failed',
@@ -45,14 +47,16 @@ export default function TransactionsPage() {
     };
 
     const handleConfirm = async (transaction: Transaction) => {
+        if (!workspaceId || !transaction.id) return;
         try {
-            await confirmTransaction(transaction.id);
-            reloadTransactions();
+            await confirmTransaction(workspaceId, transaction.id);
+            await reloadTransactions();
             toast({
                 title: 'Transaction Confirmed',
                 description: 'The transaction has been confirmed and is no longer under review.',
             });
         } catch (error) {
+            console.error(error);
             toast({
                 variant: 'destructive',
                 title: 'Confirmation failed',

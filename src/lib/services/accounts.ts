@@ -21,24 +21,19 @@ export const saveAccount = async (workspaceId: string, accountData: Partial<Acco
             createdAt: new Date(),
             updatedAt: new Date(),
         });
-        return { ...accountData, id: docRef.id };
+        const newAccount = { ...accountData, id: docRef.id };
+        return newAccount;
     }
 }
 
-export const archiveAccount = async (accountId: string) => {
-    const account = await db.findDoc(doc => doc.id === accountId, 'accounts');
-    if (!account) throw new Error("Account not found");
-    
-    await db.collection(accountsCollection(account.workspaceId)).doc(accountId).update({ archived: true });
+export const archiveAccount = async (workspaceId: string, accountId: string) => {
+    await db.collection(accountsCollection(workspaceId)).doc(accountId).update({ archived: true });
 }
 
-export const deleteAccount = async (accountId: string) => {
-    const account = await db.findDoc(doc => doc.id === accountId, 'accounts');
-    if (!account) throw new Error("Account not found");
-
-    if (await hasTransactionsForAccount(account.workspaceId, accountId)) {
+export const deleteAccount = async (workspaceId: string, accountId: string) => {
+    if (await hasTransactionsForAccount(workspaceId, accountId)) {
         throw new Error("This account has transactions and cannot be deleted.");
     }
     
-    await db.collection(accountsCollection(account.workspaceId)).doc(accountId).delete();
+    await db.collection(accountsCollection(workspaceId)).doc(accountId).delete();
 }

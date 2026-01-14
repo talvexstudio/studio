@@ -36,8 +36,9 @@ export default function AccountsPage() {
         title: `Account ${values.id ? 'updated' : 'created'}`,
         description: `The account "${values.name}" has been successfully saved.`,
       });
-      reloadAccounts();
+      await reloadAccounts();
       setIsSheetOpen(false);
+      setEditingAccount(null);
     } catch (error) {
       console.error('Failed to save account:', error);
       toast({
@@ -49,13 +50,14 @@ export default function AccountsPage() {
   };
 
   const handleArchiveAccount = async (account: Account) => {
+    if (!workspaceId || !account.id) return;
     try {
-      await archiveAccount(account.id);
+      await archiveAccount(workspaceId, account.id);
       toast({
         title: 'Account Archived',
         description: `The account "${account.name}" has been archived.`,
       });
-      reloadAccounts();
+      await reloadAccounts();
     } catch (error) {
       console.error('Failed to archive account:', error);
       toast({
@@ -67,13 +69,14 @@ export default function AccountsPage() {
   };
 
   const handleDeleteAccount = async (account: Account) => {
+    if (!workspaceId || !account.id) return;
     try {
-      await deleteAccount(account.id);
+      await deleteAccount(workspaceId, account.id);
       toast({
         title: 'Account Deleted',
         description: `The account "${account.name}" has been deleted.`,
       });
-      reloadAccounts();
+      await reloadAccounts();
     } catch (error: any) {
       console.error('Failed to delete account:', error);
       toast({
@@ -98,7 +101,7 @@ export default function AccountsPage() {
         </Button>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {accounts.filter(a => !a.archived).map((account) => (
+        {(accounts || []).filter(a => !a.archived).map((account) => (
           <AccountCard 
             key={account.id} 
             account={account}

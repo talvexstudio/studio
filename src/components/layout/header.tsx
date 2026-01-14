@@ -35,8 +35,11 @@ export function AppHeader() {
   const handleCreateWorkspace = async (name: string) => {
     if (!user) return;
     try {
+      // This will create the workspace and return the new object with its ID
       const newWorkspace = await saveWorkspace({ name, ownerUserId: user.uid });
-      reloadWorkspaces();
+      // After saving, reload the list of workspaces
+      await reloadWorkspaces();
+      // Then, set the newly created workspace as the active one
       if(newWorkspace.id) {
         setWorkspaceId(newWorkspace.id);
       }

@@ -32,7 +32,7 @@ interface ReviewTransactionsProps {
 
 export function ReviewTransactions({ transactions: initialTransactions }: ReviewTransactionsProps) {
   const { toast } = useToast();
-  const { categories, accounts, reloadTransactions } = useFlowLedger();
+  const { categories, accounts, reloadTransactions, workspaceId } = useFlowLedger();
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const getCategoryName = (catId?: string) => categories.find(c => c.id === catId)?.name || 'Uncategorized';
@@ -46,14 +46,16 @@ export function ReviewTransactions({ transactions: initialTransactions }: Review
   const getAccountName = (accId: string) => accounts.find(a => a.id === accId)?.name || 'Unknown Account';
   
   const handleApprove = async (transactionId: string) => {
+    if (!workspaceId) return;
     try {
-      await confirmTransaction(transactionId);
-      reloadTransactions();
+      await confirmTransaction(workspaceId, transactionId);
+      await reloadTransactions();
       toast({
         title: "Transaction Approved",
         description: "The transaction has been successfully categorized.",
       });
     } catch(error) {
+      console.error(error);
       toast({
         variant: 'destructive',
         title: 'Approval failed',
@@ -63,10 +65,11 @@ export function ReviewTransactions({ transactions: initialTransactions }: Review
   };
   
   const handleSave = async (updatedTransaction: Transaction, createRule: boolean) => {
+    if (!workspaceId) return;
     try {
-        await saveTransaction(updatedTransaction);
+        await saveTransaction(workspaceId, updatedTransaction);
         setEditingTransaction(null);
-        reloadTransactions();
+        await reloadTransactions();
         toast({
           title: "Transaction Updated",
           description: "Your changes have been saved.",
@@ -80,6 +83,7 @@ export function ReviewTransactions({ transactions: initialTransactions }: Review
           console.log('Creating classification rule for:', updatedTransaction);
         }
     } catch (error) {
+        console.error(error);
         toast({
             variant: 'destructive',
             title: 'Update failed',
