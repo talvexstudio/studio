@@ -21,14 +21,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ListFilter, Calendar as CalendarIcon, Check, Edit, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ListFilter, Calendar as CalendarIcon, Check, Edit, MoreVertical, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
 import { useFlowLedger } from '@/hooks/use-flow-ledger';
 import { DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '../ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
-import { DateRange } from 'react-day-picker';
-import { addDays, format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
+import { addDays, format, endOfDay } from 'date-fns';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -46,6 +46,8 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
 
   const getCategoryName = (catId?: string) => categories.find(c => c.id === catId)?.name || 'Uncategorized';
   const getAccountName = (accId: string) => accounts.find(a => a.id === accId)?.name || 'Unknown';
+  
+  const activeAccounts = React.useMemo(() => accounts.filter(a => !a.archived), [accounts]);
 
   const filteredTransactions = React.useMemo(() => {
     let data = [...transactions];
@@ -59,7 +61,9 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
       data = data.filter(t => new Date(t.date) >= dateRange.from!);
     }
     if (dateRange?.to) {
-      data = data.filter(t => new Date(t.date) <= dateRange.to!);
+      // Set time to end of day to include all transactions on the 'to' date
+      const toDate = endOfDay(dateRange.to);
+      data = data.filter(t => new Date(t.date) <= toDate);
     }
     return data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, accountFilter, categoryFilter, dateRange]);
@@ -85,6 +89,13 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
         : [...prev, categoryId]
     );
   }
+
+  const clearFilters = () => {
+    setAccountFilter([]);
+    setCategoryFilter([]);
+    setDateRange(undefined);
+    setCurrentPage(1);
+  };
   
   const activeFiltersCount = [accountFilter, categoryFilter, dateRange].filter(f => f && (Array.isArray(f) ? f.length > 0 : f.from)).length;
 
@@ -147,7 +158,7 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
               <DropdownMenuSub>
                   <DropdownMenuSubTrigger>Accounts</DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                      {accounts.map(account => (
+                      {activeAccounts.map(account => (
                         <DropdownMenuCheckboxItem
                             key={account.id}
                             checked={accountFilter.includes(account.id)}
@@ -174,6 +185,12 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
+          {activeFiltersCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <X className="mr-2 h-4 w-4" />
+              Clear filters
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -237,9 +254,9 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
         </div>
          <div className="flex items-center justify-between space-x-2 py-4">
             <div className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+                Page {currentPage} of {totalPages || 1}
             </div>
-            <div className="space-x-2">
+            <div className="flex items-center space-x-2">
                 <Button
                     variant="outline"
                     size="sm"
@@ -247,15 +264,15 @@ export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTab
                     disabled={currentPage === 1}
                 >
                     <ChevronLeft className="h-4 w-4" />
-                    Previous
+                    <span>Previous</span>
                 </Button>
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage === totalPages || totalPages === 0}
                 >
-                    Next
+                    <span>Next</span>
                     <ChevronRight className="h-4 w-4" />
                 </Button>
             </div>
