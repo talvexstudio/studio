@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,16 +17,22 @@ import { Label } from '@/components/ui/label';
 interface WorkspaceFormDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSave: (name: string) => void;
+  onSave: (name: string) => Promise<void>;
+  isSaving: boolean;
 }
 
-export function WorkspaceFormDialog({ isOpen, onOpenChange, onSave }: WorkspaceFormDialogProps) {
+export function WorkspaceFormDialog({ isOpen, onOpenChange, onSave, isSaving }: WorkspaceFormDialogProps) {
   const [name, setName] = useState('');
 
-  const handleSave = () => {
-    if (name.trim()) {
-      onSave(name.trim());
+  useEffect(() => {
+    if (isOpen) {
       setName('');
+    }
+  }, [isOpen]);
+
+  const handleSave = () => {
+    if (name.trim() && !isSaving) {
+      onSave(name.trim());
     }
   };
 
@@ -45,14 +52,15 @@ export function WorkspaceFormDialog({ isOpen, onOpenChange, onSave }: WorkspaceF
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Family Finances"
+            disabled={isSaving}
           />
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim()}>
-            Create Workspace
+          <Button onClick={handleSave} disabled={!name.trim() || isSaving}>
+            {isSaving ? 'Creating...' : 'Create Workspace'}
           </Button>
         </DialogFooter>
       </DialogContent>

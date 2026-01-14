@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -30,16 +31,15 @@ import Link from 'next/link';
 export function AppHeader() {
   const { workspaces, workspaceId, setWorkspaceId, reloadWorkspaces, user } = useFlowLedger();
   const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
 
   const handleCreateWorkspace = async (name: string) => {
-    if (!user) return;
+    if (!user || isCreating) return;
+    setIsCreating(true);
     try {
-      // This will create the workspace and return the new object with its ID
       const newWorkspace = await saveWorkspace({ name, ownerUserId: user.uid });
-      // After saving, reload the list of workspaces
       await reloadWorkspaces();
-      // Then, set the newly created workspace as the active one
       if(newWorkspace.id) {
         setWorkspaceId(newWorkspace.id);
       }
@@ -49,11 +49,14 @@ export function AppHeader() {
       });
       setIsWorkspaceDialogOpen(false);
     } catch(error) {
+      console.error("Failed to create workspace:", error);
       toast({
         variant: 'destructive',
         title: 'Creation Failed',
         description: 'Could not create the new workspace.',
       });
+    } finally {
+      setIsCreating(false);
     }
   };
   
@@ -104,15 +107,15 @@ export function AppHeader() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
+            <DropdownMenuItem>
+              <Link href="/settings" className="flex items-center w-full">
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/login">
+            <DropdownMenuItem>
+              <Link href="/login" className="flex items-center w-full">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </Link>
@@ -124,6 +127,7 @@ export function AppHeader() {
         isOpen={isWorkspaceDialogOpen}
         onOpenChange={setIsWorkspaceDialogOpen}
         onSave={handleCreateWorkspace}
+        isSaving={isCreating}
       />
     </header>
   );
