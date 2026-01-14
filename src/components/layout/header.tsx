@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -10,57 +9,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from '@/components/ui/avatar';
-import { ChevronsUpDown, LogOut, User, PlusCircle } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronsUpDown, LogOut, User } from 'lucide-react';
 import { useFlowLedger } from '@/hooks/use-flow-ledger';
-import { WorkspaceFormDialog } from './workspace-form-dialog';
-import { saveWorkspace } from '@/lib/services/workspaces';
-import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
-export function AppHeader() {
-  const { workspaces, workspaceId, setWorkspaceId, reloadWorkspaces, user } = useFlowLedger();
-  const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const { toast } = useToast();
 
-  const handleCreateWorkspace = async (name: string) => {
-    if (!user) return;
-    setIsCreating(true);
-    try {
-      const newWorkspace = await saveWorkspace({ name, ownerUserId: user.uid });
-      await reloadWorkspaces();
-      if(newWorkspace.id) {
-        setWorkspaceId(newWorkspace.id);
-      }
-      setIsWorkspaceDialogOpen(false);
-      toast({
-        title: 'Workspace Created',
-        description: `Successfully created workspace "${name}".`,
-      });
-      // Force a full page reload as a workaround for the UI freeze bug
-      window.location.reload();
-    } catch(error) {
-      console.error("Failed to create workspace:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Creation Failed',
-        description: 'Could not create the new workspace.',
-      });
-    } finally {
-      setIsCreating(false);
-    }
-  };
+export function AppHeader() {
+  const { workspaces, workspaceId, setWorkspaceId, user } = useFlowLedger();
   
   const currentWorkspace = workspaces.find(w => w.id === workspaceId);
 
@@ -87,11 +52,6 @@ export function AppHeader() {
                         <DropdownMenuRadioItem key={ws.id} value={ws.id}>{ws.name}</DropdownMenuRadioItem>
                     ))}
                 </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setIsWorkspaceDialogOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    <span>New Workspace</span>
-                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -125,12 +85,6 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-       <WorkspaceFormDialog
-        isOpen={isWorkspaceDialogOpen}
-        onOpenChange={setIsWorkspaceDialogOpen}
-        onSave={handleCreateWorkspace}
-        isSaving={isCreating}
-      />
     </header>
   );
 }
