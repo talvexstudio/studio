@@ -34,7 +34,6 @@ export default function TransactionsPage() {
         if (!workspaceId || !deleteState.transaction) return;
         try {
             await deleteTransaction(workspaceId, deleteState.transaction.id);
-            setDeleteState({ open: false, transaction: null });
             await reloadTransactions();
             toast({
               title: "Transaction Deleted",
@@ -47,6 +46,8 @@ export default function TransactionsPage() {
                 title: 'Delete failed',
                 description: 'Could not delete the transaction.',
             });
+        } finally {
+            setDeleteState({ open: false, transaction: null });
         }
     };
     
@@ -54,7 +55,6 @@ export default function TransactionsPage() {
       if (!workspaceId) return;
         try {
             await saveTransaction(workspaceId, updatedTransaction);
-            setSheetState({ open: false, transaction: null });
             await reloadTransactions();
             toast({
               title: `Transaction ${updatedTransaction.id ? 'Updated' : 'Created'}`,
@@ -75,6 +75,8 @@ export default function TransactionsPage() {
                 title: 'Save failed',
                 description: 'Could not save transaction changes.',
             });
+        } finally {
+            setSheetState({ open: false, transaction: null });
         }
     };
 
