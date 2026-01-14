@@ -16,9 +16,9 @@ interface FlowLedgerContextType {
   accounts: Account[];
   transactions: Transaction[];
   categories: (Category & { subcategories: Subcategory[] })[];
-  reloadWorkspaces: () => void;
-  reloadAccounts: () => void;
-  reloadTransactions: () => void;
+  reloadWorkspaces: () => Promise<void>;
+  reloadAccounts: () => Promise<void>;
+  reloadTransactions: () => Promise<void>;
 }
 
 const FlowLedgerContext = createContext<FlowLedgerContextType | undefined>(undefined);
@@ -72,12 +72,20 @@ export const FlowLedgerProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchCategories]);
 
   useEffect(() => {
-    fetchWorkspaces();
+    if (user) {
+        fetchWorkspaces();
+    }
   }, [user, fetchWorkspaces]);
 
   useEffect(() => {
-    fetchAccounts();
-    fetchTransactions();
+    if (workspaceId) {
+        fetchAccounts();
+        fetchTransactions();
+    } else {
+        // If workspaceId is null (e.g., after creating the very first one), clear data
+        setAccounts([]);
+        setTransactions([]);
+    }
   }, [workspaceId, fetchAccounts, fetchTransactions]);
 
   const value = {
