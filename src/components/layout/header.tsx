@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
@@ -21,11 +20,41 @@ import {
   AvatarImage,
 } from '@/components/ui/avatar';
 import { ChevronsUpDown, LogOut, User, PlusCircle } from 'lucide-react';
-import { mockWorkspaces } from '@/lib/data';
 import { useState } from 'react';
+import { useFlowLedger } from '@/hooks/use-flow-ledger';
+import { WorkspaceFormDialog } from './workspace-form-dialog';
+import { saveWorkspace } from '@/lib/services/workspaces';
+import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export function AppHeader() {
-  const [currentWorkspace, setCurrentWorkspace] = useState(mockWorkspaces[0].id);
+  const { workspaces, workspaceId, setWorkspaceId, reloadWorkspaces, user } = useFlowLedger();
+  const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleCreateWorkspace = async (name: string) => {
+    if (!user) return;
+    try {
+      const newWorkspace = await saveWorkspace({ name, ownerUserId: user.uid });
+      reloadWorkspaces();
+      if(newWorkspace.id) {
+        setWorkspaceId(newWorkspace.id);
+      }
+      toast({
+        title: 'Workspace Created',
+        description: `Successfully created workspace "${name}".`,
+      });
+      setIsWorkspaceDialogOpen(false);
+    } catch(error) {
+      toast({
+        variant: 'destructive',
+        title: 'Creation Failed',
+        description: 'Could not create the new workspace.',
+      });
+    }
+  };
+  
+  const currentWorkspace = workspaces.find(w => w.id === workspaceId);
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
@@ -39,19 +68,19 @@ export function AppHeader() {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-48 justify-between">
-                    {mockWorkspaces.find(w => w.id === currentWorkspace)?.name || 'Select Workspace'}
+                    {currentWorkspace?.name || 'Select Workspace'}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56">
                 <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={currentWorkspace} onValueChange={setCurrentWorkspace}>
-                    {mockWorkspaces.map(ws => (
+                <DropdownMenuRadioGroup value={workspaceId || ''} onValueChange={setWorkspaceId}>
+                    {workspaces.map(ws => (
                         <DropdownMenuRadioItem key={ws.id} value={ws.id}>{ws.name}</DropdownMenuRadioItem>
                     ))}
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIsWorkspaceDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     <span>New Workspace</span>
                 </DropdownMenuItem>
@@ -64,8 +93,8 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar>
-                <AvatarImage src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" />
-                <AvatarFallback>U</AvatarFallback>
+                <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || 'User'} />
+                <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
@@ -88,6 +117,11 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+       <WorkspaceFormDialog
+        isOpen={isWorkspaceDialogOpen}
+        onOpenChange={setIsWorkspaceDialogOpen}
+        onSave={handleCreateWorkspace}
+      />
     </header>
   );
 }

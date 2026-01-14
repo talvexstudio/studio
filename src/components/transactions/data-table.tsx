@@ -20,24 +20,54 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ListFilter } from 'lucide-react';
-import { mockTransactions, mockAccounts, mockCategories } from '@/lib/data';
+import { ListFilter, Calendar as CalendarIcon, Check, Edit, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
+import { useFlowLedger } from '@/hooks/use-flow-ledger';
+import { DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '../ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { addDays, format } from 'date-fns';
 
-export function TransactionsDataTable() {
-  const [transactions] = React.useState<Transaction[]>(mockTransactions);
+const ITEMS_PER_PAGE = 20;
+
+interface TransactionsDataTableProps {
+  onEdit: (transaction: Transaction) => void;
+  onConfirm: (transaction: Transaction) => void;
+}
+
+export function TransactionsDataTable({ onEdit, onConfirm }: TransactionsDataTableProps) {
+  const { accounts, categories, transactions } = useFlowLedger();
   const [accountFilter, setAccountFilter] = React.useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = React.useState<string[]>([]);
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
+  const [currentPage, setCurrentPage] = React.useState(1);
 
-  const getCategoryName = (catId?: string) => mockCategories.find(c => c.id === catId)?.name || 'Uncategorized';
-  const getAccountName = (accId: string) => mockAccounts.find(a => a.id === accId)?.name || 'Unknown';
+  const getCategoryName = (catId?: string) => categories.find(c => c.id === catId)?.name || 'Uncategorized';
+  const getAccountName = (accId: string) => accounts.find(a => a.id === accId)?.name || 'Unknown';
 
   const filteredTransactions = React.useMemo(() => {
     let data = [...transactions];
     if (accountFilter.length > 0) {
       data = data.filter(t => accountFilter.includes(t.accountId));
     }
-    return data.sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [transactions, accountFilter]);
+    if (categoryFilter.length > 0) {
+      data = data.filter(t => t.categoryId && categoryFilter.includes(t.categoryId));
+    }
+    if (dateRange?.from) {
+      data = data.filter(t => t.date >= dateRange.from!);
+    }
+    if (dateRange?.to) {
+      data = data.filter(t => t.date <= dateRange.to!);
+    }
+    return data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [transactions, accountFilter, categoryFilter, dateRange]);
+  
+  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const toggleAccountFilter = (accountId: string) => {
     setAccountFilter(prev =>
@@ -46,8 +76,16 @@ export function TransactionsDataTable() {
         : [...prev, accountId]
     );
   };
+
+  const toggleCategoryFilter = (categoryId: string) => {
+    setCategoryFilter(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  }
   
-  const activeFiltersCount = accountFilter.length > 0 ? 1 : 0;
+  const activeFiltersCount = [accountFilter, categoryFilter, dateRange].filter(f => f && (Array.isArray(f) ? f.length > 0 : f.from)).length;
 
   return (
     <Card>
@@ -58,30 +96,84 @@ export function TransactionsDataTable() {
             {filteredTransactions.length} transaction(s) found.
           </CardDescription>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="relative">
-              <ListFilter className="mr-2 h-4 w-4" />
-              Filter
-              {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="absolute -right-2 -top-2 rounded-full p-1 h-5 w-5 justify-center">{activeFiltersCount}</Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Filter by account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {mockAccounts.map(account => (
-              <DropdownMenuCheckboxItem
-                key={account.id}
-                checked={accountFilter.includes(account.id)}
-                onCheckedChange={() => toggleAccountFilter(account.id)}
-              >
-                {account.name}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="date"
+                  variant={"outline"}
+                  className={"w-[300px] justify-start text-left font-normal"}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="relative">
+                <ListFilter className="mr-2 h-4 w-4" />
+                Filter
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="absolute -right-2 -top-2 rounded-full p-1 h-5 w-5 justify-center">{activeFiltersCount}</Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Accounts</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                      {accounts.map(account => (
+                        <DropdownMenuCheckboxItem
+                            key={account.id}
+                            checked={accountFilter.includes(account.id)}
+                            onCheckedChange={() => toggleAccountFilter(account.id)}
+                        >
+                            {account.name}
+                        </DropdownMenuCheckboxItem>
+                        ))}
+                  </DropdownMenuSubContent>
+              </DropdownMenuSub>
+               <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Categories</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                      {categories.map(category => (
+                        <DropdownMenuCheckboxItem
+                            key={category.id}
+                            checked={categoryFilter.includes(category.id)}
+                            onCheckedChange={() => toggleCategoryFilter(category.id)}
+                        >
+                            {category.name}
+                        </DropdownMenuCheckboxItem>
+                        ))}
+                  </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="border rounded-md">
@@ -93,11 +185,12 @@ export function TransactionsDataTable() {
                 <TableHead>Description</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-center w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((t) => (
+              {paginatedTransactions.length > 0 ? (
+                paginatedTransactions.map((t) => (
                   <TableRow key={t.id} data-state={t.needsReview ? 'selected' : ''}>
                     <TableCell className="text-muted-foreground">{new Date(t.date).toLocaleDateString()}</TableCell>
                     <TableCell>{getAccountName(t.accountId)}</TableCell>
@@ -108,11 +201,32 @@ export function TransactionsDataTable() {
                     <TableCell className={`text-right font-semibold ${t.amountBase > 0 ? 'text-green-600 dark:text-green-400' : ''}`}>
                       {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(t.amountBase)}
                     </TableCell>
+                    <TableCell className="text-center">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {t.needsReview && (
+                                    <DropdownMenuItem onClick={() => onConfirm(t)}>
+                                        <Check className="mr-2 h-4 w-4 text-green-500" />
+                                        Confirm
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => onEdit(t)}>
+                                    <Edit className="mr-2 h-4 w-4 text-primary" />
+                                    Edit
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     No transactions found.
                   </TableCell>
                 </TableRow>
@@ -120,7 +234,31 @@ export function TransactionsDataTable() {
             </TableBody>
           </Table>
         </div>
-        {/* A real implementation would have pagination controls here */}
+         <div className="flex items-center justify-between space-x-2 py-4">
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+            </div>
+            <div className="space-x-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
       </CardContent>
     </Card>
   );

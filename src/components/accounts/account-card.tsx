@@ -2,10 +2,11 @@
 
 import type { Account } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Landmark, CreditCard, Smartphone, Wallet, TrendingUp, HelpCircle, MoreVertical } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Landmark, CreditCard, Smartphone, Wallet, TrendingUp, HelpCircle, MoreVertical, Archive, Trash2, Edit, TriangleAlert } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 
 const accountIcons: { [key in Account['type']]: React.ReactNode } = {
   bank: <Landmark className="h-4 w-4 text-muted-foreground" />,
@@ -16,7 +17,14 @@ const accountIcons: { [key in Account['type']]: React.ReactNode } = {
   other: <HelpCircle className="h-4 w-4 text-muted-foreground" />,
 };
 
-export function AccountCard({ account }: { account: Account }) {
+interface AccountCardProps {
+  account: Account;
+  onEdit: (account: Account) => void;
+  onArchive: (account: Account) => void;
+  onDelete: (account: Account) => void;
+}
+
+export function AccountCard({ account, onEdit, onArchive, onDelete }: AccountCardProps) {
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
 
   useEffect(() => {
@@ -44,18 +52,50 @@ export function AccountCard({ account }: { account: Account }) {
         )}
       </CardContent>
       <div className="absolute top-2 right-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem>Archive</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive-foreground focus:bg-destructive">Delete</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <AlertDialog>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(account)}>
+                <Edit className="mr-2 h-4 w-4" />
+                <span>Edit</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onArchive(account)}>
+                 <Archive className="mr-2 h-4 w-4" />
+                 <span>Archive</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <AlertDialogTrigger asChild>
+                <DropdownMenuItem className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Delete</span>
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center">
+                  <TriangleAlert className="mr-2 text-destructive" />
+                  Delete Account?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete the account "{account.name}"? This action cannot be undone.
+                  Accounts with existing transactions cannot be deleted.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(account)} className="bg-destructive hover:bg-destructive/90">
+                  Delete Account
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Card>
   );

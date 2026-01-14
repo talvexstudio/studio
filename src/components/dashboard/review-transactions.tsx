@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -20,10 +20,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Check, Edit, MoreVertical } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
-import { mockAccounts, mockCategories } from '@/lib/data';
 import { EditTransactionSheet } from './edit-transaction-sheet';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useFlowLedger } from '@/hooks/use-flow-ledger';
+import { confirmTransaction, saveTransaction } from '@/lib/services/transactions';
 
 interface ReviewTransactionsProps {
   transactions: Transaction[];
@@ -31,51 +32,63 @@ interface ReviewTransactionsProps {
 
 export function ReviewTransactions({ transactions: initialTransactions }: ReviewTransactionsProps) {
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const { categories, accounts, reloadTransactions } = useFlowLedger();
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-  useEffect(() => {
-    setTransactions(initialTransactions);
-  }, [initialTransactions]);
-
-  const getCategoryName = (catId?: string) => mockCategories.find(c => c.id === catId)?.name || 'Uncategorized';
+  const getCategoryName = (catId?: string) => categories.find(c => c.id === catId)?.name || 'Uncategorized';
   const getSubcategoryName = (subcatId?: string) => {
-    for (const cat of mockCategories) {
+    for (const cat of categories) {
         const sub = cat.subcategories.find(s => s.id === subcatId);
         if (sub) return sub.name;
     }
     return '';
   }
-  const getAccountName = (accId: string) => mockAccounts.find(a => a.id === accId)?.name || 'Unknown Account';
+  const getAccountName = (accId: string) => accounts.find(a => a.id === accId)?.name || 'Unknown Account';
   
-  const handleApprove = (transactionId: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== transactionId));
-    toast({
-      title: "Transaction Approved",
-      description: "The transaction has been successfully categorized.",
-    });
-    // In a real app, you would also make an API call to update the backend.
+  const handleApprove = async (transactionId: string) => {
+    try {
+      await confirmTransaction(transactionId);
+      reloadTransactions();
+      toast({
+        title: "Transaction Approved",
+        description: "The transaction has been successfully categorized.",
+      });
+    } catch(error) {
+      toast({
+        variant: 'destructive',
+        title: 'Approval failed',
+        description: 'Could not approve transaction.'
+      });
+    }
   };
   
-  const handleSave = (updatedTransaction: Transaction, createRule: boolean) => {
-    const newTransactions = transactions.filter(t => t.id !== updatedTransaction.id);
-    setTransactions(newTransactions);
-    setEditingTransaction(null);
-    toast({
-      title: "Transaction Updated",
-      description: "Your changes have been saved.",
-    });
-    if (createRule) {
-      toast({
-        title: "Classification Rule Created",
-        description: "A new rule has been created for similar transactions.",
-      });
-      // In a real app, you would call the generateClassificationRule AI flow.
-      console.log('Creating classification rule for:', updatedTransaction);
+  const handleSave = async (updatedTransaction: Transaction, createRule: boolean) => {
+    try {
+        await saveTransaction(updatedTransaction);
+        setEditingTransaction(null);
+        reloadTransactions();
+        toast({
+          title: "Transaction Updated",
+          description: "Your changes have been saved.",
+        });
+        if (createRule) {
+          toast({
+            title: "Classification Rule Created",
+            description: "A new rule has been created for similar transactions.",
+          });
+          // In a real app, you would call the generateClassificationRule AI flow.
+          console.log('Creating classification rule for:', updatedTransaction);
+        }
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Update failed',
+            description: 'Could not save transaction changes.',
+        });
     }
   };
 
-  if (transactions.length === 0) {
+  if (initialTransactions.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -111,7 +124,7 @@ export function ReviewTransactions({ transactions: initialTransactions }: Review
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((transaction) => (
+              {initialTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell className="hidden md:table-cell">{new Date(transaction.date).toLocaleDateString()}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{getAccountName(transaction.accountId)}</TableCell>
@@ -165,7 +178,7 @@ export function ReviewTransactions({ transactions: initialTransactions }: Review
         onOpenChange={(open) => { if (!open) setEditingTransaction(null) }}
         transaction={editingTransaction}
         onSave={handleSave}
-        categories={mockCategories}
+        categories={categories}
       />
     </>
   );

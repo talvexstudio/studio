@@ -8,16 +8,45 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
+import { useFlowLedger } from '@/hooks/use-flow-ledger';
+import { useMemo } from 'react';
 
-const data = [
-  { name: 'Groceries', value: 850.50, fill: 'hsl(var(--chart-1))' },
-  { name: 'Restaurants', value: 450.75, fill: 'hsl(var(--chart-2))' },
-  { name: 'Transport', value: 250.00, fill: 'hsl(var(--chart-3))' },
-  { name: 'Shopping', value: 600.25, fill: 'hsl(var(--chart-4))' },
-  { name: 'Other', value: 300.00, fill: 'hsl(var(--chart-5))' },
+const CHART_COLORS = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
 ];
 
 export function ExpensesChart() {
+  const { transactions, categories } = useFlowLedger();
+
+  const data = useMemo(() => {
+    const expenseData = transactions
+      .filter(t => t.type === 'Expense' && !t.needsReview && t.categoryId)
+      .reduce((acc, t) => {
+        const categoryId = t.categoryId!;
+        acc[categoryId] = (acc[categoryId] || 0) + Math.abs(t.amountBase);
+        return acc;
+      }, {} as { [key: string]: number });
+
+    const sortedData = Object.entries(expenseData)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5) // Take top 5
+      .map(([categoryId, value], index) => {
+        const category = categories.find(c => c.id === categoryId);
+        return {
+          name: category?.name || 'Other',
+          value: value,
+          fill: CHART_COLORS[index % CHART_COLORS.length],
+        };
+      });
+
+      return sortedData;
+  }, [transactions, categories]);
+
+
   return (
     <Card>
       <CardHeader>
@@ -25,37 +54,43 @@ export function ExpensesChart() {
         <CardDescription>Breakdown of spending this month.</CardDescription>
       </CardHeader>
       <CardContent className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadialBarChart
-            innerRadius="30%"
-            outerRadius="100%"
-            data={data}
-            startAngle={90}
-            endAngle={-270}
-          >
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--background))',
-                borderColor: 'hsl(var(--border))',
-                borderRadius: 'var(--radius)',
-              }}
-               formatter={(value: number) => `€${value.toFixed(2)}`}
-            />
-             <Legend
-              iconSize={10}
-              layout="vertical"
-              verticalAlign="middle"
-              align="right"
-              wrapperStyle={{ right: -10 }}
-            />
-            <RadialBar
-              background
-              dataKey="value"
-              nameKey="name"
-              label={{ position: 'insideStart', fill: '#fff', fontSize: '12px' }}
-            />
-          </RadialBarChart>
-        </ResponsiveContainer>
+        {data.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <RadialBarChart
+              innerRadius="30%"
+              outerRadius="100%"
+              data={data}
+              startAngle={90}
+              endAngle={-270}
+            >
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--background))',
+                  borderColor: 'hsl(var(--border))',
+                  borderRadius: 'var(--radius)',
+                }}
+                formatter={(value: number) => `€${value.toFixed(2)}`}
+              />
+              <Legend
+                iconSize={10}
+                layout="vertical"
+                verticalAlign="middle"
+                align="right"
+                wrapperStyle={{ right: -10 }}
+              />
+              <RadialBar
+                background
+                dataKey="value"
+                nameKey="name"
+                label={{ position: 'insideStart', fill: '#fff', fontSize: '12px' }}
+              />
+            </RadialBarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-muted-foreground">
+            No expense data available.
+          </div>
+        )}
       </CardContent>
     </Card>
   );

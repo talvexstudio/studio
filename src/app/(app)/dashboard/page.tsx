@@ -5,7 +5,6 @@ import { OverviewChart } from '@/components/dashboard/overview-chart';
 import { ExpensesChart } from '@/components/dashboard/expenses-chart';
 import { ReviewTransactions } from '@/components/dashboard/review-transactions';
 import { DollarSign, ArrowUp, ArrowDown, PiggyBank, Sparkles, TriangleAlert } from 'lucide-react';
-import { mockTransactions, mockAccounts } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -20,19 +19,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useFlowLedger } from '@/hooks/use-flow-ledger';
+import { seedDemoData, clearWorkspaceData } from '@/lib/services/seed';
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState(mockTransactions);
-  const [accounts, setAccounts] = useState(mockAccounts);
+  const { 
+    accounts, 
+    transactions, 
+    workspaceId, 
+    reloadAccounts, 
+    reloadTransactions 
+  } = useFlowLedger();
+
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const loadDemoData = () => {
+  const loadDemoData = async () => {
+    if (!workspaceId) {
+      toast({
+        variant: 'destructive',
+        title: 'No workspace selected',
+        description: 'Please select or create a workspace first.',
+      });
+      return;
+    }
     try {
-      // In a real app, these would be API calls.
-      // We simulate success here.
-      setAccounts(mockAccounts);
-      setTransactions(mockTransactions);
+      await seedDemoData(workspaceId);
+      reloadAccounts();
+      reloadTransactions();
       
       toast({
         title: 'Demo Data Loaded',
@@ -56,18 +70,20 @@ export default function DashboardPage() {
     }
   };
 
-  const handleReplaceData = () => {
-    // In a real app, this would be an API call to delete workspace data.
-    // Here, we just clear the local state.
-    setAccounts([]);
-    setTransactions([]);
-    
-    // Use a short timeout to ensure state updates before loading new data
-    setTimeout(() => {
-        loadDemoData();
-    }, 100);
+  const handleReplaceData = async () => {
+    if (!workspaceId) return;
 
     setShowConfirmDialog(false);
+    try {
+      await clearWorkspaceData(workspaceId);
+      await loadDemoData();
+    } catch(error) {
+        toast({
+            variant: 'destructive',
+            title: 'Failed to replace data',
+            description: 'Could not replace existing data. Please try again.',
+        });
+    }
   };
 
   const totalIncome = transactions
