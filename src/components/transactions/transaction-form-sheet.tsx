@@ -34,11 +34,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Transaction, Category, Subcategory, Account } from '@/lib/types';
 import { TransactionFormValues, transactionSchema } from '@/lib/schemas';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { Calendar } from '../ui/calendar';
 
 interface TransactionFormSheetProps {
   isOpen: boolean;
@@ -78,6 +74,7 @@ export function TransactionFormSheet({
         if (transaction) {
           form.reset({
             ...transaction,
+            type: transaction.type ?? 'Expense',
             amountBase: Math.abs(transaction.amountBase || 0), // Edit absolute value
             date: transaction.date ? new Date(transaction.date) : new Date(),
             createRule: false,
@@ -143,7 +140,7 @@ export function TransactionFormSheet({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Account</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isEditing}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select an account" />
@@ -165,43 +162,33 @@ export function TransactionFormSheet({
             <FormField
               control={form.control}
               name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
-                        }
-                        initialFocus
+              render={({ field }) => {
+                const rawValue = field.value;
+                const dateValue =
+                  rawValue instanceof Date
+                    ? rawValue
+                    : rawValue
+                    ? new Date(rawValue)
+                    : undefined;
+                const inputValue = dateValue ? format(dateValue, "yyyy-MM-dd") : "";
+
+                return (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        value={inputValue}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          field.onChange(value ? new Date(value) : null);
+                        }}
                       />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField
@@ -238,7 +225,7 @@ export function TransactionFormSheet({
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Select transaction type" />

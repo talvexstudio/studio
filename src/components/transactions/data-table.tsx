@@ -43,6 +43,7 @@ export function TransactionsDataTable({ onEdit, onConfirm, onDelete }: Transacti
   const [categoryFilter, setCategoryFilter] = React.useState<string[]>([]);
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [openMenuId, setOpenMenuId] = React.useState<string | null>(null);
 
   const getCategoryName = (catId?: string) => categories.find(c => c.id === catId)?.name || 'Uncategorized';
   const getAccountName = (accId: string) => accounts.find(a => a.id === accId)?.name || 'Unknown';
@@ -220,7 +221,10 @@ export function TransactionsDataTable({ onEdit, onConfirm, onDelete }: Transacti
                       {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(t.amountBase)}
                     </TableCell>
                     <TableCell className="text-center">
-                        <DropdownMenu>
+                        <DropdownMenu
+                          open={openMenuId === t.id}
+                          onOpenChange={(open) => setOpenMenuId(open ? t.id : null)}
+                        >
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
                                     <MoreVertical className="h-4 w-4" />
@@ -228,17 +232,17 @@ export function TransactionsDataTable({ onEdit, onConfirm, onDelete }: Transacti
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 {t.needsReview && (
-                                    <DropdownMenuItem onClick={() => onConfirm(t)}>
+                                    <DropdownMenuItem onClick={() => { setOpenMenuId(null); onConfirm(t); }}>
                                         <Check className="mr-2 h-4 w-4 text-green-500" />
                                         Confirm
                                     </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onClick={() => onEdit(t)}>
+                                <DropdownMenuItem onClick={() => { setOpenMenuId(null); onEdit(t); }}>
                                     <Edit className="mr-2 h-4 w-4 text-primary" />
                                     Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => onDelete(t)} className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
+                                <DropdownMenuItem onClick={() => { setOpenMenuId(null); onDelete(t); }} className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Delete
                                 </DropdownMenuItem>

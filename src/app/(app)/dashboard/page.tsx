@@ -4,11 +4,11 @@ import { KpiCard } from '@/components/dashboard/kpi-card';
 import { OverviewChart } from '@/components/dashboard/overview-chart';
 import { ExpensesChart } from '@/components/dashboard/expenses-chart';
 import { ReviewTransactions } from '@/components/dashboard/review-transactions';
-import { DollarSign, ArrowUp, ArrowDown, PiggyBank, Sparkles, TriangleAlert } from 'lucide-react';
+import { DollarSign, ArrowUp, ArrowDown, PiggyBank, Sparkles, TriangleAlert, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
-import type { Transaction, Account } from '@/lib/types';
+import { useMemo, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useFlowLedger } from '@/hooks/use-flow-ledger';
 import { seedDemoData, clearWorkspaceData } from '@/lib/services/seed';
+import { buildMonthlyOverviewData, getLast30DaysRange, toDate } from '@/app/(app)/dashboard/utils';
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -86,16 +87,57 @@ export default function DashboardPage() {
     }
   };
 
-  const totalIncome = transactions
-    .filter((t) => t.type === 'Income' && !t.needsReview)
-    .reduce((sum, t) => sum + t.amountBase, 0);
+  const { income, expenses, net, savingsRate } = useMemo(() => {
+    const { start, end } = getLast30DaysRange();
+    const last30Days = transactions.filter((t) => {
+      const date = toDate(t.date);
+      return date ? date >= start && date <= end : false;
+    });
 
-  const totalExpenses = transactions
-    .filter((t) => t.type === 'Expense' && !t.needsReview)
-    .reduce((sum, t) => sum + t.amountBase, 0);
+    const incomeTotal = last30Days
+      .filter((t) => t.type === 'Income')
+      .reduce((sum, t) => sum + t.amountBase, 0);
 
-  const netBalance = totalIncome + totalExpenses;
-  const savingsRate = totalIncome > 0 ? (netBalance / totalIncome) * 100 : 0;
+    const expenseTotal = last30Days
+      .filter((t) => t.type === 'Expense')
+      .reduce((sum, t) => sum + Math.abs(t.amountBase), 0);
+
+    const netBalance = incomeTotal - expenseTotal;
+    const rate = incomeTotal > 0 ? (netBalance / incomeTotal) * 100 : 0;
+
+    return {
+      income: incomeTotal,
+      expenses: expenseTotal,
+      net: netBalance,
+      savingsRate: rate,
+    };
+  }, [transactions]);
+
+  const monthlyData = useMemo(() => buildMonthlyOverviewData(transactions), [transactions]);
+
+  const { avgIncome, avgExpenses, periodSavingsRate } = useMemo(() => {
+    const monthsInWindow = monthlyData.length || 1;
+    const totalIncome = monthlyData.reduce((sum, month) => sum + month.income, 0);
+    const totalExpenses = monthlyData.reduce((sum, month) => sum + month.expenses, 0);
+
+    const averageIncome = totalIncome / monthsInWindow;
+    const averageExpenses = totalExpenses / monthsInWindow;
+    const savingsRate = totalIncome > 0 ? (totalIncome - totalExpenses) / totalIncome : 0;
+
+    return {
+      avgIncome: averageIncome,
+      avgExpenses: averageExpenses,
+      periodSavingsRate: savingsRate,
+    };
+  }, [monthlyData]);
+
+  const currencyFormatter = useMemo(() => {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+  }, []);
+
+  const percentFormatter = useMemo(() => {
+    return new Intl.NumberFormat('de-DE', { style: 'percent', maximumFractionDigits: 1 });
+  }, []);
   
   const transactionsToReview = transactions.filter(t => t.needsReview);
 
@@ -108,35 +150,58 @@ export default function DashboardPage() {
             Load Demo Data
           </Button>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <KpiCard
             title="Total Income"
-            value={`€${totalIncome.toFixed(2)}`}
+            value={`€${income.toFixed(2)}`}
             icon={<ArrowUp className="h-4 w-4 text-muted-foreground" />}
             description="Last 30 days"
           />
           <KpiCard
             title="Total Expenses"
-            value={`€${Math.abs(totalExpenses).toFixed(2)}`}
+            value={`€${expenses.toFixed(2)}`}
             icon={<ArrowDown className="h-4 w-4 text-muted-foreground" />}
             description="Last 30 days"
           />
           <KpiCard
             title="Net Balance"
-            value={`€${netBalance.toFixed(2)}`}
+            value={`€${net.toFixed(2)}`}
             icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-            description="Income - Expenses"
+            description="Income - Expenses (last 30 days)"
           />
           <KpiCard
             title="Savings Rate"
             value={`${savingsRate.toFixed(1)}%`}
             icon={<PiggyBank className="h-4 w-4 text-muted-foreground" />}
-            description="Net / Income"
+            description="Net / Income (last 30 days)"
           />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Monthly Averages</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Last 12 months</p>
+              <div className="mt-3 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Income</span>
+                  <span className="font-semibold">{currencyFormatter.format(avgIncome)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Expenses</span>
+                  <span className="font-semibold">{currencyFormatter.format(avgExpenses)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Savings rate</span>
+                  <span className="font-semibold">{percentFormatter.format(periodSavingsRate)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <div className="col-span-12 lg:col-span-4">
-            <OverviewChart />
+            <OverviewChart data={monthlyData} />
           </div>
           <div className="col-span-12 lg:col-span-3">
             <ExpensesChart />
@@ -166,3 +231,6 @@ export default function DashboardPage() {
     </>
   );
 }
+
+
+

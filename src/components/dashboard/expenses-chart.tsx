@@ -10,61 +10,56 @@ import {
 } from '@/components/ui/card';
 import { useFlowLedger } from '@/hooks/use-flow-ledger';
 import { useMemo } from 'react';
+import { isWithinInterval } from 'date-fns';
+import { getLast30DaysRange, toDate } from '@/app/(app)/dashboard/utils';
 
-const CHART_COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-  'hsl(240, 60%, 60%)',
-  'hsl(300, 60%, 60%)',
-  'hsl(0, 60%, 60%)',
+const CATEGORY_COLORS = [
+  '#4F46E5',
+  '#06B6D4',
+  '#22C55E',
+  '#F97316',
+  '#EC4899',
+  '#0EA5E9',
+  '#A855F7',
 ];
 
 export function ExpensesChart() {
   const { transactions, categories } = useFlowLedger();
 
-  const data = useMemo(() => {
+  const { data, total } = useMemo(() => {
+    const { start, end } = getLast30DaysRange();
     const expenseData = transactions
-      .filter(t => t.type === 'Expense' && !t.needsReview && t.categoryId)
+      .filter(t => t.type === 'Expense' && t.categoryId)
+      .filter(t => {
+        const date = toDate(t.date);
+        return date ? isWithinInterval(date, { start, end }) : false;
+      })
       .reduce((acc, t) => {
         const categoryId = t.categoryId!;
         acc[categoryId] = (acc[categoryId] || 0) + Math.abs(t.amountBase);
         return acc;
       }, {} as { [key: string]: number });
 
-    const totalExpenses = Object.values(expenseData).reduce((sum, value) => sum + value, 0);
-
-    const sortedData = Object.entries(expenseData)
+    const entries = Object.entries(expenseData)
       .map(([categoryId, value]) => {
         const category = categories.find(c => c.id === categoryId);
         return {
-          name: category?.name || 'Uncategorized',
-          value: value,
+          categoryId,
+          categoryName: category?.name || 'Uncategorized',
+          total: value,
         };
       })
-      .sort((a, b) => b.value - a.value);
+      .filter(entry => entry.total > 0)
+      .sort((a, b) => b.total - a.total);
 
-    // Group small slices into "Other"
-    const finalData = [];
-    let otherValue = 0;
-    const otherThreshold = totalExpenses * 0.03; // Categories making up less than 3% go into "Other"
+    const totalExpenses = entries.reduce((sum, entry) => sum + entry.total, 0);
 
-    for (const item of sortedData) {
-      if (item.value < otherThreshold && sortedData.length > 5) {
-        otherValue += item.value;
-      } else {
-        finalData.push(item);
-      }
-    }
+    const finalData = entries.map((entry, index) => ({
+      ...entry,
+      color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+    }));
 
-    if (otherValue > 0) {
-      finalData.push({ name: 'Other', value: otherValue });
-    }
-
-    return finalData.slice(0, 8); // Max 8 slices
-      
+    return { data: finalData, total: totalExpenses };
   }, [transactions, categories]);
 
 
@@ -72,7 +67,7 @@ export function ExpensesChart() {
     <Card>
       <CardHeader>
         <CardTitle>Expenses by Category</CardTitle>
-        <CardDescription>Breakdown of spending this month.</CardDescription>
+        <CardDescription>Breakdown of spending in the last 30 days.</CardDescription>
       </CardHeader>
       <CardContent className="h-80">
         {data.length > 0 ? (
@@ -95,8 +90,8 @@ export function ExpensesChart() {
               />
               <Pie
                 data={data}
-                dataKey="value"
-                nameKey="name"
+                dataKey="total"
+                nameKey="categoryName"
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
@@ -113,15 +108,15 @@ export function ExpensesChart() {
                   ) : null;
                 }}
               >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                {data.map((entry) => (
+                  <Cell key={entry.categoryId} fill={entry.color} />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
-            No expense data available.
+            No expenses recorded in the last 30 days.
           </div>
         )}
       </CardContent>
